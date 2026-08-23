@@ -527,7 +527,7 @@
     enhanceBro();
     // 国外IP 10%概率触发恶搞警告
     var finalLoc = (target === 'LOCATING...') ? (typeof real !== 'undefined' ? real : null) : loc;
-    if (finalLoc && finalLoc.isForeign && Math.random() < 0.10) {
+    if (finalLoc && finalLoc.isForeign && Math.random() < 0.15) {
       setTimeout(function () {
         showPrankWarning(finalLoc.ip || '');
       }, 700);
