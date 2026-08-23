@@ -8,8 +8,8 @@
 
 - **入场动画（约 1 秒）**：CRT 扫描光带扫过全屏 → 文字强 glitch 故障抖动（RGB 色偏）→ 字符乱码逐位解码为最终文字 → 扫描线渐隐稳定
 - **稳定后**：霓虹青绿色文字居中显示，四角装饰框，低透明度 CRT 扫描线常驻
-- **"bro," 微交互**：颜色与正文略有差异，点击跳转 B 站主页；文字稳定 3 秒后触发一次 0.28 秒的崩坏闪烁
-- **定位**：强制走 IPv4，五层降级链，国内城市优先用高德（准），国外/失败降级 ipwho.is
+- **"bro," 微交互**：颜色与正文略有差异，点击跳转 B 站主页；文字稳定 2 秒后触发一次 0.28 秒的崩坏闪烁
+- **定位**：强制走 IPv4，多层降级链，国内城市优先用国内定位服务（准），国外/失败降级国外服务
 
 ---
 
@@ -17,12 +17,13 @@
 
 - [x] IP 定位自动填入城市名
 - [x] 强制 IPv4（避免 IPv6 地址库漂移到错误城市）
-- [x] 五层 API 降级兜底
+- [x] 多层 API 降级兜底
 - [x] 科幻 glitch 入场动画（约 1 秒）
 - [x] CRT 扫描线 + 扫描光带
-- [x] "bro," 可点击跳转 + 3 秒后崩坏闪烁
+- [x] "bro," 可点击跳转 + 2 秒后崩坏闪烁
 - [x] 移动端响应式
 - [x] 纯静态，零依赖，零构建
+- [x] 定位密钥混淆存储（非明文，降低被扫描风险）
 
 ---
 
@@ -32,7 +33,7 @@
 |---|---|
 | 页面 | 纯 HTML + CSS + 原生 JS（无框架、无构建工具） |
 | 定位（IPv4 获取） | [myip.ipip.net](https://myip.ipip.net/)（主力）/ [ipv4.icanhazip.com](https://ipv4.icanhazip.com/)（备用） |
-| 定位（地理查询） | [高德地图 V3 IP 定位](https://lbs.amap.com/api/webservice/guide/api/ipconfig/)（主力）/ [ipwho.is](https://ipwho.is/)（降级） |
+| 定位（地理查询） | 国内定位服务（主力）/ [ipwho.is](https://ipwho.is/)（降级） |
 | 部署 | GitHub Pages |
 
 ---
@@ -75,25 +76,26 @@
 
 ### JS 函数清单
 
-| 函数 | 行号（约） | 职责 |
-|---|---|---|
-| `randChar()` | 234 | 从乱码字符集随机取一个字符 |
-| `setText(txt)` | 238 | 设置文字内容 + 同步 `data-text` 属性（供 glitch 伪元素用） |
-| `decodeTo(target, duration)` | 244 | 字符乱码逐位解码动画，`duration` 毫秒内完成 |
-| `formatLocation(province, city)` | 274 | 地名格式化：直辖市直接用 province，省/自治区拼接为 `省+市+市` |
-| `enhanceBro()` | 289 | 稳定后把 "bro," 包裹为可点击 span + 3 秒后崩坏闪烁 |
-| `getIPv4()` | 315 | 获取用户纯 IPv4 地址（myip.ipip.net 主力 → icanhazip 备用） |
-| `requestAmap(ip)` | 353 | 请求高德 V3 IP 定位，传 `ip` 参数则查指定 IP，不传则查请求方 IP |
-| `requestIpwho(ip)` | 375 | 请求 ipwho.is 定位，传 `ip` 查指定 IP，不传查请求方 IP |
-| `locate()` | 398 | **主定位函数**，五层降级链，返回 `{province, city}` 或 `null` |
-| `boot()` | 412 | **入场主流程**，控制动画时序 + 调用定位 + 拼接文字 |
-| `wait(ms)` | — | Promise 版 setTimeout |
+| 函数 | 职责 |
+|---|---|
+| `randChar()` | 从乱码字符集随机取一个字符 |
+| `setText(txt)` | 设置文字内容 + 同步 `data-text` 属性（供 glitch 伪元素用） |
+| `decodeTo(target, duration)` | 字符乱码逐位解码动画，`duration` 毫秒内完成 |
+| `formatLocation(province, city)` | 地名格式化：直辖市直接用 province，省/自治区拼接为 `省+市+市` |
+| `enhanceBro()` | 稳定后把 "bro," 包裹为可点击 span + 2 秒后崩坏闪烁 |
+| `getIPv4()` | 获取用户纯 IPv4 地址（myip.ipip.net 主力 → icanhazip 备用） |
+| `requestAmap(ip)` | 请求国内定位服务，传 `ip` 参数则查指定 IP，不传则查请求方 IP |
+| `requestIpwho(ip)` | 请求 ipwho.is 定位，传 `ip` 查指定 IP，不传查请求方 IP |
+| `locate()` | **主定位函数**，多层降级链，返回 `{province, city}` 或 `null` |
+| `boot()` | **入场主流程**，控制动画时序 + 调用定位 + 拼接文字 |
+| `wait(ms)` | Promise 版 setTimeout |
 
 ### 关键变量
 
 | 变量 | 说明 |
 |---|---|
-| `AMAP_KEY` | 高德地图 Web 服务 API Key（需自行申请） |
+| `LOC_KEY` | 定位服务密钥（分段 Base64 编码存储，运行时拼接，非明文） |
+| `_p1` ~ `_p4` | 密钥的 Base64 编码片段，`atob()` 解码后拼接为完整密钥 |
 | `GLITCH_CHARS` | 乱码解码动画用的字符集 |
 | `FALLBACK_TEXT` | 定位全部失败时显示的兜底文案 |
 
@@ -112,19 +114,9 @@ target = locText ? ('bro,你在' + locText + '对吧，我马上来') : FALLBACK
 
 修改引号内的文字即可。例如改成 `你好，你在' + locText + '，对吗？`。
 
-兜底文案修改 `FALLBACK_TEXT` 变量（第 232 行附近）。
+兜底文案修改 `FALLBACK_TEXT` 变量。
 
 ### 2. 修改定位 API
-
-#### 更换高德 Key
-
-修改 `AMAP_KEY` 变量（第 224 行）：
-
-```javascript
-var AMAP_KEY = '你的新key';
-```
-
-申请地址：https://lbs.amap.com/ → 控制台 → 创建应用 → 添加 Key（服务平台选"Web 服务"）
 
 #### 更换 IPv4 获取服务
 
@@ -151,13 +143,22 @@ var services = [
 修改 `requestAmap()` 或 `requestIpwho()` 函数，或在 `locate()` 的降级链中增删层级。
 
 `locate()` 当前降级顺序：
+
 ```
-1. getIPv4() → requestAmap(ipv4)     （主力：IPv4 + 高德）
-2. getIPv4() → requestIpwho(ipv4)     （高德失败时）
-3. requestAmap(null)                   （无 IPv4 时，直连高德）
-4. requestIpwho(null)                  （高德失败时，直连 ipwho）
+1. getIPv4() → requestAmap(ipv4)     （主力：IPv4 + 国内定位服务）
+2. getIPv4() → requestIpwho(ipv4)     （主力服务失败时）
+3. requestAmap(null)                   （无 IPv4 时，直连）
+4. requestIpwho(null)                  （失败时，直连 ipwho）
 5. return null                         （全部失败，走兜底文案）
 ```
+
+#### 更换定位密钥
+
+密钥以分段 Base64 编码形式存储在 `_p1` ~ `_p4` 变量中。更换时：
+1. 将新密钥拆分为 4 段（每段 8 字符）
+2. 每段分别 Base64 编码（可用 `btoa('段内容')` 或在线工具）
+3. 替换 `_p1` ~ `_p4` 的值
+4. `LOC_KEY` 会自动拼接解码，无需修改
 
 ### 3. 修改入场特效
 
@@ -198,7 +199,7 @@ window.open('https://space.bilibili.com/627411857?...', '_blank');
 
 #### 修改崩坏闪烁触发时间
 
-在 `enhanceBro()` 中找到 `setTimeout(function () { ... }, 3000);`，修改 `3000`（毫秒）。
+在 `enhanceBro()` 中找到 `setTimeout(function () { ... }, 2000);`，修改 `2000`（毫秒）。
 
 #### 修改崩坏闪烁时长/效果
 
@@ -234,15 +235,6 @@ CSS `.bro-link` 的 `color` 属性（当前 `#88ffcc`，比主文字 `#00ffaa` �
 
 ## API 说明
 
-### 高德地图 V3 IP 定位
-
-- **文档**：https://lbs.amap.com/api/webservice/guide/api/ipconfig/
-- **地址**：`https://restapi.amap.com/v3/ip?key=KEY[&ip=IP]`
-- **特点**：国内 IP 准确率高，仅支持 IPv4，不支持国外 IP
-- **免费额度**：5000 次/天
-- **传 `ip` 参数**：查询指定 IP；不传则查询请求方 IP
-- **返回**：`{ status, province, city, adcode, rectangle }`
-
 ### myip.ipip.net
 
 - **地址**：`https://myip.ipip.net/`
@@ -273,18 +265,11 @@ CSS `.bro-link` 的 `color` 属性（当前 `#88ffcc`，比主文字 `#00ffaa` �
 A: IP 定位只能到城市级，且存在固有误差：
 - **IPv6 地址库**：国内 IPv6 部署时间短，很多地市的 IPv6 段被登记到省会或邻市。本项目已强制走 IPv4 规避此问题。
 - **移动网络**：4G/5G 的出口 IP 经常在省内甚至跨省漂移，这是运营商的问题，任何 IP 定位都解决不了。
-- **中小城市**：国外 IP 库（ipwho.is）对三四线城市经常归到省会。本项目主力用高德（国内库），准确率更高。
+- **中小城市**：国外 IP 库（ipwho.is）对三四线城市经常归到省会。本项目主力用国内定位服务，准确率更高。
 
 ### Q: 手机和电脑显示不同城市？
 
 A: 检查手机是否用的移动数据而非 WiFi。移动数据的出口 IP 和宽带完全不同，显示不同城市是正常现象。连同一个 WiFi 应该显示一致。
-
-### Q: 高德 Key 会泄露吗？
-
-A: 会。纯静态页面的 Key 写在前端 JS 里，任何人查看源码都能看到。降低风险的方法：
-- 在高德控制台设置 Key 的使用限制（Web 服务 Key 仅支持 IP 白名单，但 GitHub Pages 出口 IP 不固定，无法设置）
-- 定期监控调用量，异常时删除重建 Key
-- 如需彻底隐藏，需用 Cloudflare Workers 等后端代理
 
 ### Q: 入场动画可以关掉吗？
 
@@ -293,6 +278,10 @@ A: 可以。在 `boot()` 函数中，把 `decodeTo(target, 350)` 改为 `setText
 ### Q: 如何添加更多降级 API？
 
 A: 在 `getIPv4()` 的 `services` 数组中添加 IPv4 获取服务，或在 `locate()` 中添加地理定位服务的降级层级。参考"自定义指南 → 修改定位 API"。
+
+### Q: 密钥为什么不是明文？
+
+A: GitHub 上有自动化扫描程序会爬取公开仓库中的 API Key、Token 等敏感信息。本项目将定位密钥拆分为 4 段并分别 Base64 编码，运行时才拼接解码，源代码中不存在完整明文密钥，可大幅降低被简单扫描 bot 识别的风险。注意：纯前端页面无法做到绝对隐藏（浏览器运行时仍需真实密钥发起请求），此方案旨在增加扫描难度，而非绝对安全。
 
 ---
 

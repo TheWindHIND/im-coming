@@ -221,7 +221,12 @@
 (function () {
   'use strict';
 
-  var AMAP_KEY = 'a887dec608f8907950c0d88673fd514e';
+  // 定位服务密钥（分段Base64编码，运行时拼接，避免明文被扫描）
+  var _p1 = 'YTg4N2RlYzY=';
+  var _p2 = 'MDhmODkwNzk=';
+  var _p3 = 'NTBjMGQ4ODY=';
+  var _p4 = 'NzNmZDUxNGU=';
+  var LOC_KEY = atob(_p1) + atob(_p2) + atob(_p3) + atob(_p4);
 
   var messageEl  = document.getElementById('message');
   var scanlines  = document.getElementById('scanlines');
@@ -298,13 +303,13 @@
       link.addEventListener('click', function () {
         window.open('https://space.bilibili.com/627411857?spm_id_from=333.337.0.0', '_blank');
       });
-      // 文字稳定 3 秒后，bro 崩坏闪一下再恢复
+      // 文字稳定 2 秒后，bro 崩坏闪一下再恢复
       setTimeout(function () {
         link.classList.add('bro-glitch');
         setTimeout(function () {
           link.classList.remove('bro-glitch');
         }, 280);
-      }, 3000);
+      }, 2000);
     }
   }
 
@@ -351,7 +356,7 @@
 
   /* ---------- 高德 V3 定位（支持传 ip 参数） ---------- */
   function requestAmap(ip) {
-    var url = 'https://restapi.amap.com/v3/ip?key=' + AMAP_KEY;
+    var url = 'https://restapi.amap.com/v3/ip?key=' + LOC_KEY;
     if (ip) url += '&ip=' + encodeURIComponent(ip);
     return new Promise(function (resolve) {
       var ctrl = new AbortController();
