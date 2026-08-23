@@ -175,6 +175,17 @@
   .corner.tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; }
   .corner.bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; }
   .corner.br { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; }
+
+  /* bro 微差色 + 可点击 */
+  .bro-link {
+    color: #88ffcc;
+    cursor: pointer;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+  }
+  .bro-link:hover {
+    color: #ffffff;
+    text-shadow: 0 0 14px rgba(136, 255, 204, 0.85);
+  }
 </style>
 </head>
 <body>
@@ -256,6 +267,22 @@
       return province + city + '市';
     }
     return province || city || null;
+  }
+
+  /* ---------- bro 微差色 + 跳转 B 站 ---------- */
+  function enhanceBro() {
+    var text = messageEl.textContent;
+    if (text.indexOf('bro,') === -1) return;
+    messageEl.innerHTML = text.replace(
+      'bro,',
+      '<span class="bro-link" id="broLink">bro,</span>'
+    );
+    var link = document.getElementById('broLink');
+    if (link) {
+      link.addEventListener('click', function () {
+        window.open('https://space.bilibili.com/627411857?spm_id_from=333.337.0.0', '_blank');
+      });
+    }
   }
 
   /* ---------- IP 定位 ----------
@@ -362,6 +389,7 @@
     scanlines.classList.add('fade');
     statusEl.textContent = 'CONNECTED';
     setTimeout(function () { statusEl.style.opacity = '0'; }, 1200);
+    enhanceBro();
   }
 
   function wait(ms) {
