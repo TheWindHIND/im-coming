@@ -186,6 +186,22 @@
     color: #ffffff;
     text-shadow: 0 0 14px rgba(136, 255, 204, 0.85);
   }
+
+  /* bro 崩坏闪烁 */
+  .bro-link.bro-glitch {
+    animation: bro-break 0.28s steps(1) forwards;
+  }
+  @keyframes bro-break {
+    0%   { color: #88ffcc; transform: translate(0, 0); filter: none; text-shadow: none; }
+    12%  { color: #ffffff; transform: translate(4px, -1px); filter: blur(1.5px); text-shadow: 0 0 22px #fff; }
+    25%  { color: #ff2d55; transform: translate(-5px, 2px); filter: blur(2.5px); text-shadow: 3px 0 #ff2d55, -3px 0 #00c8ff; }
+    38%  { color: #00c8ff; transform: translate(3px, -2px); filter: blur(1px); text-shadow: -2px 0 #00c8ff; }
+    50%  { color: #ffffff; transform: translate(-3px, 1px); filter: none; text-shadow: 0 0 18px #fff; }
+    62%  { color: #ff2d55; transform: translate(4px, 0); filter: blur(1px); }
+    75%  { color: #88ffcc; transform: translate(-2px, 0); filter: none; text-shadow: none; }
+    88%  { color: #ffffff; transform: translate(1px, 0); }
+    100% { color: #88ffcc; transform: translate(0, 0); filter: none; text-shadow: none; }
+  }
 </style>
 </head>
 <body>
@@ -282,6 +298,13 @@
       link.addEventListener('click', function () {
         window.open('https://space.bilibili.com/627411857?spm_id_from=333.337.0.0', '_blank');
       });
+      // 文字稳定 3 秒后，bro 崩坏闪一下再恢复
+      setTimeout(function () {
+        link.classList.add('bro-glitch');
+        setTimeout(function () {
+          link.classList.remove('bro-glitch');
+        }, 280);
+      }, 3000);
     }
   }
 
