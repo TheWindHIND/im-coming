@@ -308,53 +308,40 @@
     }
   }
 
-  /* ---------- IP 定位 ----------
-     主：高德地图（国内 IP 更准，中文）
-     备：ipwho.is（国外 IP / 高德失败时兜底）
+  /* ---------- 获取纯 IPv4 地址 ----------
+     主力：myip.ipip.net（国内0.34s，仅IPv4域名，支持CORS）
+     备用：ipv4.icanhazip.com（Cloudflare，0.9s，仅IPv4域名，支持CORS）
   */
-  function locate() {
-    var apis = [
+  function getIPv4() {
+    var services = [
       {
-        url: 'https://restapi.amap.com/v3/ip?key=' + AMAP_KEY,
-        parse: function (d) {
-          if (!d || d.status !== '1') return null;
-          var province = typeof d.province === 'string' ? d.province : '';
-          var city = typeof d.city === 'string' ? d.city : '';
-          // 高德返回的 city 自带"市"字，去掉末尾统一处理
-          if (city.charAt(city.length - 1) === '市') {
-            city = city.slice(0, -1);
-          }
-          // 国外 IP 或无法定位时 province/city 可能为空数组
-          if (!province && !city) return null;
-          return { province: province, city: city };
+        url: 'https://myip.ipip.net/',
+        parse: function (text) {
+          var m = text.match(/(\d{1,3}\.){3}\d{1,3}/);
+          return m ? m[0] : null;
         }
       },
       {
-        url: 'https://ipwho.is/?lang=zh-CN',
-        parse: function (d) {
-          if (!d || d.success === false) return null;
-          return { province: d.region || '', city: d.city || '' };
+        url: 'https://ipv4.icanhazip.com/',
+        parse: function (text) {
+          var m = text.match(/(\d{1,3}\.){3}\d{1,3}/);
+          return m ? m[0] : null;
         }
       }
     ];
-
     return new Promise(function (resolve) {
       var idx = 0;
       function tryNext() {
-        if (idx >= apis.length) { resolve(null); return; }
-        var api = apis[idx++];
+        if (idx >= services.length) { resolve(null); return; }
+        var svc = services[idx++];
         var ctrl = new AbortController();
-        var timer = setTimeout(function () { ctrl.abort(); }, 4000);
-        fetch(api.url, { signal: ctrl.signal })
-          .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
-          .then(function (data) {
+        var timer = setTimeout(function () { ctrl.abort(); }, 3000);
+        fetch(svc.url, { signal: ctrl.signal })
+          .then(function (r) { if (!r.ok) throw new Error('http'); return r.text(); })
+          .then(function (text) {
             clearTimeout(timer);
-            var loc = api.parse(data);
-            if (loc && (loc.province || loc.city)) {
-              resolve(loc);
-            } else {
-              tryNext();
-            }
+            var ip = svc.parse(text);
+            if (ip) { resolve(ip); } else { tryNext(); }
           })
           .catch(function () { clearTimeout(timer); tryNext(); });
       }
@@ -362,6 +349,66 @@
     });
   }
 
+  /* ---------- 高德 V3 定位（支持传 ip 参数） ---------- */
+  function requestAmap(ip) {
+    var url = 'https://restapi.amap.com/v3/ip?key=' + AMAP_KEY;
+    if (ip) url += '&ip=' + encodeURIComponent(ip);
+    return new Promise(function (resolve) {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function () { ctrl.abort(); }, 3000);
+      fetch(url, { signal: ctrl.signal })
+        .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
+        .then(function (d) {
+          clearTimeout(timer);
+          if (!d || d.status !== '1') { resolve(null); return; }
+          var province = typeof d.province === 'string' ? d.province : '';
+          var city = typeof d.city === 'string' ? d.city : '';
+          if (city.charAt(city.length - 1) === '市') city = city.slice(0, -1);
+          if (!province && !city) { resolve(null); return; }
+          resolve({ province: province, city: city });
+        })
+        .catch(function () { clearTimeout(timer); resolve(null); });
+    });
+  }
+
+  /* ---------- ipwho.is 定位（支持传指定 IP） ---------- */
+  function requestIpwho(ip) {
+    var url = 'https://ipwho.is/' + (ip ? encodeURIComponent(ip) : '') + '?lang=zh-CN';
+    return new Promise(function (resolve) {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function () { ctrl.abort(); }, 3000);
+      fetch(url, { signal: ctrl.signal })
+        .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
+        .then(function (d) {
+          clearTimeout(timer);
+          if (!d || d.success === false) { resolve(null); return; }
+          resolve({ province: d.region || '', city: d.city || '' });
+        })
+        .catch(function () { clearTimeout(timer); resolve(null); });
+    });
+  }
+
+  /* ---------- 主定位函数（五层降级） ----------
+     1. myip.ipip.net 拿IPv4 → 高德V3传ip（主力，最准）
+     2. 同上 → ipwho.is传ip（高德失败/国外IP时）
+     3. 无IPv4或都失败 → 高德V3直连（用请求方IP）
+     4. 高德失败 → ipwho.is直连
+     5. 全部失败 → null（兜底文案）
+  */
+  async function locate() {
+    var ipv4 = await getIPv4();
+    if (ipv4) {
+      var loc = await requestAmap(ipv4);
+      if (loc) return loc;
+      loc = await requestIpwho(ipv4);
+      if (loc) return loc;
+    }
+    var loc = await requestAmap(null);
+    if (loc) return loc;
+    loc = await requestIpwho(null);
+    if (loc) return loc;
+    return null;
+  }
   /* ---------- 入场主流程 ---------- */
   async function boot() {
     scanBeam.classList.add('active');
