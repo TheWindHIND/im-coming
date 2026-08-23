@@ -75,6 +75,7 @@
     width: 100%;
     height: 100%;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 24px;
@@ -202,6 +203,38 @@
     88%  { color: #ffffff; transform: translate(1px, 0); }
     100% { color: #88ffcc; transform: translate(0, 0); filter: none; text-shadow: none; }
   }
+
+  /* 国外IP恶搞警告 */
+  .prank-warning {
+    margin-top: 28px;
+    font-size: clamp(0.62rem, 1.25vw, 0.88rem);
+    color: #c0392b;
+    text-align: center;
+    line-height: 1.75;
+    max-width: 88vw;
+    white-space: pre-line;
+    text-shadow: 0 0 8px rgba(192, 57, 43, 0.4);
+    letter-spacing: 0.5px;
+    opacity: 0;
+    animation: prank-fadein 0.8s ease forwards;
+  }
+  .prank-ip-log {
+    margin-top: 14px;
+    font-size: 0.58rem;
+    color: rgba(192, 57, 43, 0.45);
+    text-align: center;
+    letter-spacing: 2.5px;
+    opacity: 0;
+    animation: prank-fadein 1.2s ease 0.6s forwards, prank-blink 2.5s ease 2.2s infinite;
+  }
+  @keyframes prank-fadein {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes prank-blink {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 0.12; }
+  }
 </style>
 </head>
 <body>
@@ -313,6 +346,29 @@
     }
   }
 
+  /* ---------- 国外IP恶搞警告（打字机效果） ---------- */
+  function showPrankWarning(ip) {
+    var container = document.querySelector('.container');
+    if (!container) return;
+    var warningEl = document.createElement('div');
+    warningEl.className = 'prank-warning';
+    container.appendChild(warningEl);
+    var ipLogEl = document.createElement('div');
+    ipLogEl.className = 'prank-ip-log';
+    ipLogEl.textContent = '已记录你的 IP：' + (ip || '未知');
+    container.appendChild(ipLogEl);
+    var warningText = '检测到您当前使用境外IP地址访问本网站。\n根据《中华人民共和国计算机信息网络国际联网管理暂行规定》第六条，\n任何单位和个人不得自行建立或使用非法定信道进行国际联网。\n依据第十四条，违规者将由公安机关责令停止联网、给予警告，\n并可处15000元以下罚款。请自觉遵守法律法规，通过合法渠道上网。';
+    var i = 0;
+    function type() {
+      if (i < warningText.length) {
+        warningEl.textContent += warningText.charAt(i);
+        i++;
+        setTimeout(type, 22);
+      }
+    }
+    setTimeout(type, 400);
+  }
+
   /* ---------- 获取纯 IPv4 地址 ----------
      主力：myip.ipip.net（国内0.34s，仅IPv4域名，支持CORS）
      备用：ipv4.icanhazip.com（Cloudflare，0.9s，仅IPv4域名，支持CORS）
@@ -370,7 +426,7 @@
           var city = typeof d.city === 'string' ? d.city : '';
           if (city.charAt(city.length - 1) === '市') city = city.slice(0, -1);
           if (!province && !city) { resolve(null); return; }
-          resolve({ province: province, city: city });
+          resolve({ province: province, city: city, isForeign: false });
         })
         .catch(function () { clearTimeout(timer); resolve(null); });
     });
@@ -387,7 +443,11 @@
         .then(function (d) {
           clearTimeout(timer);
           if (!d || d.success === false) { resolve(null); return; }
-          resolve({ province: d.region || '', city: d.city || '' });
+          var isForeign = true;
+          if (d.country === '中国' || d.country === 'China' || d.country_code === 'CN') {
+            isForeign = false;
+          }
+          resolve({ province: d.region || '', city: d.city || '', isForeign: isForeign });
         })
         .catch(function () { clearTimeout(timer); resolve(null); });
     });
@@ -404,9 +464,9 @@
     var ipv4 = await getIPv4();
     if (ipv4) {
       var loc = await requestAmap(ipv4);
-      if (loc) return loc;
+      if (loc) { loc.ip = ipv4; return loc; }
       loc = await requestIpwho(ipv4);
-      if (loc) return loc;
+      if (loc) { loc.ip = ipv4; return loc; }
     }
     var loc = await requestAmap(null);
     if (loc) return loc;
@@ -465,6 +525,13 @@
     statusEl.textContent = 'CONNECTED';
     setTimeout(function () { statusEl.style.opacity = '0'; }, 1200);
     enhanceBro();
+    // 国外IP 10%概率触发恶搞警告
+    var finalLoc = (target === 'LOCATING...') ? (typeof real !== 'undefined' ? real : null) : loc;
+    if (finalLoc && finalLoc.isForeign && Math.random() < 0.10) {
+      setTimeout(function () {
+        showPrankWarning(finalLoc.ip || '');
+      }, 700);
+    }
   }
 
   function wait(ms) {
