@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我马上来</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #050505;
+    font-family: 'Courier New', 'Consolas', 'Microsoft YaHei', monospace;
+    cursor: default;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 50%, #0a1f14 0%, #050505 65%);
+    z-index: 0;
+  }
+
+  .scanlines {
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.18) 0px,
+      rgba(0, 0, 0, 0.18) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 100;
+    opacity: 1;
+    transition: opacity 0.6s ease;
+  }
+  .scanlines.fade { opacity: 0.12; }
+
+  .scan-beam {
+    position: fixed;
+    left: 0;
+    width: 100%;
+    height: 120px;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(0, 255, 170, 0.06) 40%,
+      rgba(0, 255, 170, 0.12) 50%,
+      rgba(0, 255, 170, 0.06) 60%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 99;
+    top: -120px;
+    opacity: 0;
+  }
+  .scan-beam.active {
+    animation: beam-sweep 0.9s ease-out forwards;
+  }
+  @keyframes beam-sweep {
+    0%   { top: -120px; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .message {
+    font-size: clamp(1.3rem, 4.5vw, 3.2rem);
+    font-weight: 700;
+    color: #00ffaa;
+    text-align: center;
+    letter-spacing: 1.5px;
+    line-height: 1.5;
+    text-shadow:
+      0 0 8px rgba(0, 255, 170, 0.6),
+      0 0 20px rgba(0, 255, 170, 0.35),
+      0 0 40px rgba(0, 255, 170, 0.15);
+    position: relative;
+    word-break: break-word;
+    max-width: 100%;
+  }
+
+  .message.glitch {
+    animation: glitch-shake 0.08s infinite;
+  }
+  .message.glitch::before,
+  .message.glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    text-align: center;
+    letter-spacing: 1.5px;
+    line-height: 1.5;
+    pointer-events: none;
+  }
+  .message.glitch::before {
+    color: #ff2d55;
+    text-shadow: 2px 0 #ff2d55;
+    animation: glitch-red 0.12s infinite;
+    clip-path: polygon(0 0, 100% 0, 100% 42%, 0 42%);
+  }
+  .message.glitch::after {
+    color: #00c8ff;
+    text-shadow: -2px 0 #00c8ff;
+    animation: glitch-blue 0.12s infinite;
+    clip-path: polygon(0 58%, 100% 58%, 100% 100%, 0 100%);
+  }
+  @keyframes glitch-shake {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(-3px, 1px); }
+    50% { transform: translate(3px, -1px); }
+    75% { transform: translate(-2px, 2px); }
+  }
+  @keyframes glitch-red {
+    0%, 100% { transform: translate(0); }
+    20% { transform: translate(-5px, 0); }
+    40% { transform: translate(4px, 0); }
+    60% { transform: translate(-3px, 0); }
+    80% { transform: translate(3px, 0); }
+  }
+  @keyframes glitch-blue {
+    0%, 100% { transform: translate(0); }
+    20% { transform: translate(5px, 0); }
+    40% { transform: translate(-4px, 0); }
+    60% { transform: translate(3px, 0); }
+    80% { transform: translate(-3px, 0); }
+  }
+
+  .flicker { animation: flicker 0.07s infinite; }
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    45% { opacity: 0.2; }
+    55% { opacity: 0.9; }
+  }
+
+  .status {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.72rem;
+    color: rgba(0, 255, 170, 0.35);
+    letter-spacing: 4px;
+    z-index: 1;
+    transition: opacity 0.8s ease;
+    white-space: nowrap;
+  }
+
+  .corner {
+    position: fixed;
+    width: 24px;
+    height: 24px;
+    border-color: rgba(0, 255, 170, 0.25);
+    border-style: solid;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .corner.tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; }
+  .corner.tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; }
+  .corner.bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; }
+  .corner.br { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; }
+</style>
+</head>
+<body>
+  <div class="scanlines" id="scanlines"></div>
+  <div class="scan-beam" id="scanBeam"></div>
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <div class="container">
+    <div class="message" id="message">INITIALIZING</div>
+  </div>
+  <div class="status" id="status">BOOTING</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var AMAP_KEY = 'a887dec608f8907950c0d88673fd514e';
+
+  var messageEl  = document.getElementById('message');
+  var scanlines  = document.getElementById('scanlines');
+  var scanBeam   = document.getElementById('scanBeam');
+  var statusEl   = document.getElementById('status');
+
+  var GLITCH_CHARS = '!@#$%^&*()_+-=[]{}|;:,.<>?/~`ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  var FALLBACK_TEXT = 'bro,你在某个神秘的地方对吧，我马上来';
+
+  function randChar() {
+    return GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
+  }
+
+  function setText(txt) {
+    messageEl.textContent = txt;
+    messageEl.setAttribute('data-text', txt);
+  }
+
+  /* ---------- 字符解码动画 ---------- */
+  function decodeTo(target, duration) {
+    duration = duration || 600;
+    var len = target.length;
+    var start = performance.now();
+    var revealed = new Array(len).fill(false);
+
+    function frame(now) {
+      var p = Math.min((now - start) / duration, 1);
+      var count = Math.floor(p * len);
+      for (var i = 0; i < count; i++) revealed[i] = true;
+
+      var out = '';
+      for (var j = 0; j < len; j++) {
+        out += revealed[j] ? target[j] : randChar();
+      }
+      setText(out);
+
+      if (p < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        setText(target);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- 位置文本格式化 ----------
+     输入 province(省/直辖市/自治区) 和 city(市，不带"市"字)
+     输出如 "四川省广安市" / "北京市" / "广西壮族自治区南宁市"
+  */
+  function formatLocation(province, city) {
+    if (!province && !city) return null;
+
+    // 直辖市 / 特别行政区：直接用 province
+    if (province && (province.charAt(province.length - 1) === '市' || province.indexOf('特别行政区') !== -1)) {
+      return province;
+    }
+    // 省 / 自治区：省 + 城市 + 市
+    if (province && city) {
+      return province + city + '市';
+    }
+    return province || city || null;
+  }
+
+  /* ---------- IP 定位 ----------
+     主：高德地图（国内 IP 更准，中文）
+     备：ipwho.is（国外 IP / 高德失败时兜底）
+  */
+  function locate() {
+    var apis = [
+      {
+        url: 'https://restapi.amap.com/v3/ip?key=' + AMAP_KEY,
+        parse: function (d) {
+          if (!d || d.status !== '1') return null;
+          var province = typeof d.province === 'string' ? d.province : '';
+          var city = typeof d.city === 'string' ? d.city : '';
+          // 高德返回的 city 自带"市"字，去掉末尾统一处理
+          if (city.charAt(city.length - 1) === '市') {
+            city = city.slice(0, -1);
+          }
+          // 国外 IP 或无法定位时 province/city 可能为空数组
+          if (!province && !city) return null;
+          return { province: province, city: city };
+        }
+      },
+      {
+        url: 'https://ipwho.is/?lang=zh-CN',
+        parse: function (d) {
+          if (!d || d.success === false) return null;
+          return { province: d.region || '', city: d.city || '' };
+        }
+      }
+    ];
+
+    return new Promise(function (resolve) {
+      var idx = 0;
+      function tryNext() {
+        if (idx >= apis.length) { resolve(null); return; }
+        var api = apis[idx++];
+        var ctrl = new AbortController();
+        var timer = setTimeout(function () { ctrl.abort(); }, 4000);
+        fetch(api.url, { signal: ctrl.signal })
+          .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
+          .then(function (data) {
+            clearTimeout(timer);
+            var loc = api.parse(data);
+            if (loc && (loc.province || loc.city)) {
+              resolve(loc);
+            } else {
+              tryNext();
+            }
+          })
+          .catch(function () { clearTimeout(timer); tryNext(); });
+      }
+      tryNext();
+    });
+  }
+
+  /* ---------- 入场主流程 ---------- */
+  async function boot() {
+    scanBeam.classList.add('active');
+    statusEl.textContent = 'CONNECTING';
+    messageEl.classList.add('flicker');
+    setText('INITIALIZING_SYSTEM');
+
+    await wait(180);
+
+    messageEl.classList.remove('flicker');
+    messageEl.classList.add('glitch');
+    statusEl.textContent = 'DECRYPTING';
+    setText('>>>>>>>>>>>>>>');
+
+    var locPromise = locate();
+
+    var loc = await Promise.race([locPromise, wait(600)]);
+
+    var target;
+    if (loc) {
+      var locText = formatLocation(loc.province, loc.city);
+      target = locText ? ('bro,你在' + locText + '对吧，我马上来') : FALLBACK_TEXT;
+    } else {
+      target = 'LOCATING...';
+    }
+
+    messageEl.classList.remove('glitch');
+    decodeTo(target, 350);
+
+    await wait(380);
+
+    if (target === 'LOCATING...') {
+      var real = await locPromise;
+      if (real) {
+        var realText = formatLocation(real.province, real.city);
+        var finalText = realText ? ('bro,你在' + realText + '对吧，我马上来') : FALLBACK_TEXT;
+        messageEl.classList.add('glitch');
+        await wait(120);
+        messageEl.classList.remove('glitch');
+        decodeTo(finalText, 280);
+        await wait(300);
+      } else {
+        decodeTo(FALLBACK_TEXT, 280);
+        await wait(300);
+      }
+    }
+
+    scanlines.classList.add('fade');
+    statusEl.textContent = 'CONNECTED';
+    setTimeout(function () { statusEl.style.opacity = '0'; }, 1200);
+  }
+
+  function wait(ms) {
+    return new Promise(function (r) { setTimeout(r, ms); });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+</body>
+</html>
